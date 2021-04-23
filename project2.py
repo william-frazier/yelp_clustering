@@ -1,8 +1,7 @@
 
 
 import numpy as np
-import pandas as pd
-from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
@@ -11,7 +10,7 @@ from nltk.stem import PorterStemmer
 from nltk.corpus import stopwords
 import json
 import re
-from sklearn.cluster import KMeans, MiniBatchKMeans
+from sklearn.cluster import KMeans
 
 
 
@@ -68,7 +67,10 @@ def tokenize_reviews(review):
     return tokens
     
 
-def create_vector(tokens):
+def create_vector(reviews):
+    tokens = []
+    for key in reviews:
+        tokens.append(reviews[key])
     print("Creating matrix from documents.")
     vectorizer = TfidfVectorizer(max_df=0.5, max_features=30,
                                  min_df=2, stop_words='english',
@@ -76,38 +78,38 @@ def create_vector(tokens):
     X = vectorizer.fit_transform(tokens)
     return X
 
+#def combine_reviews(reviews):
+#    docs = []
+#    for review in reviews:
+#        docs += [review['text']]
+#    return docs
+    
 def combine_reviews(reviews):
-    docs = []
+    docs = {}
     for review in reviews:
-        docs += [review['text']]
+        try:
+            docs[review['business_id']] += review['text']
+        except:
+            docs[review['business_id']] = review['text']
     return docs
     
 def kmpp(k, X):
     print("Running k-means++.")
     km = KMeans(n_clusters=k, init='k-means++', max_iter=100, n_init=1)
     data = km.fit_predict(X)
-    centroids = km.cluster_centers_
-    print(centroids)
-    print(data)
-    print(X[0].todense())
-    tsne_init = 'pca'  # could also be 'random'
-    tsne_perplexity = 20.0
-    tsne_early_exaggeration = 4.0
-    tsne_learning_rate = 1000
-    model = TSNE(n_components=2, init=tsne_init, perplexity=tsne_perplexity,
-             early_exaggeration=tsne_early_exaggeration, learning_rate=tsne_learning_rate)
-    transformed_centroids = model.fit_transform(X.todense())
+    pca = PCA(n_components=2)
+    transformed_centroids = pca.fit_transform(X.todense())
     plt.scatter(transformed_centroids[:, 0], transformed_centroids[:, 1], marker='x', c=data)
     plt.show()
 
 def test():
     
-    IDs = get_IDs('Boston', num_reviews=1000)
-    reviews = find_reviews(IDs)
-#    reviews = large_reviews
+#    IDs = get_IDs('Boston', num_reviews=1000)
+#    reviews = find_reviews(IDs)
+    reviews = large_reviews
     tokens = combine_reviews(reviews)
     X = create_vector(tokens)
-    kmpp(20, X)
+    kmpp(5, X)
     
     
 def evaluate_clusters(reviews, max_clusters):
