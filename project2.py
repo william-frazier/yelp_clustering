@@ -3,22 +3,22 @@
 import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
-from nltk.tokenize import word_tokenize
-from nltk.stem import PorterStemmer
-from nltk.corpus import stopwords
+#from nltk.tokenize import word_tokenize
+#from nltk.stem import PorterStemmer
+#from nltk.corpus import stopwords
 import json
-import re
+#import re
 from sklearn.cluster import KMeans
+from sklearn.neighbors import KNeighborsClassifier
 
 
 
 def get_IDs(city, num_reviews=200, write=False):
     """
-    Get the business IDs for restaurants in given city which have more than 200
-    reviews. If write is set to true then their JSON data will be dumped to a 
-    file.
+    Get the business IDs for restaurants in given city which have more than
+    num_reviews reviews. If write is set to true then their JSON data will be 
+    dumped to a xfile.
     """
     
     print(f"Searching for businesses in {city}.")
@@ -42,7 +42,10 @@ def get_IDs(city, num_reviews=200, write=False):
             
 
 def find_reviews(IDs):
-    
+    """
+    Given a list of buisness IDs, this function will search through the review
+    dataset and return a list of all of the reviews about those businesses.
+    """
 
     print("Finding reviews for selected businesses.")
     reviews = []
@@ -54,37 +57,43 @@ def find_reviews(IDs):
     return reviews
 
 
-def tokenize_reviews(review):
-    stop_words = set(stopwords.words('english')) 
-    punctuation = re.compile(r'[-.?!,:;()|0-9]')
-    tokenized_words = word_tokenize(review)
-    tokens = []
-    pst = PorterStemmer()
-    for word in tokenized_words:
-        word = punctuation.sub("", word)
-        if word not in stop_words and word:
-            tokens.append(pst.stem(word))
-    return tokens
+#def tokenize_reviews(review):
+#    stop_words = set(stopwords.words('english')) 
+#    punctuation = re.compile(r'[-.?!,:;()|0-9]')
+#    tokenized_words = word_tokenize(review)
+#    tokens = []
+#    pst = PorterStemmer()
+#    for word in tokenized_words:
+#        word = punctuation.sub("", word)
+#        if word not in stop_words and word:
+#            tokens.append(pst.stem(word))
+#    return tokens
     
 
 def create_vector(reviews):
+    """
+    Given a dictionary where each key is a business ID and each value is a long 
+    string containing the text for reviews for that business, returns the 
+    TF-IDF matrix.
+    """
+    
+    print("Creating matrix from documents.")
     tokens = []
     for key in reviews:
         tokens.append(reviews[key])
-    print("Creating matrix from documents.")
     vectorizer = TfidfVectorizer(max_df=0.5, max_features=30,
                                  min_df=2, stop_words='english',
                                  use_idf=True)
     X = vectorizer.fit_transform(tokens)
     return X
-
-#def combine_reviews(reviews):
-#    docs = []
-#    for review in reviews:
-#        docs += [review['text']]
-#    return docs
     
 def combine_reviews(reviews):
+    """
+    Given a list of reviews, this function will return a dictionary where the 
+    key is a business ID and the value is a long string of every review for 
+    that business.
+    """
+    
     docs = {}
     for review in reviews:
         try:
@@ -93,26 +102,55 @@ def combine_reviews(reviews):
             docs[review['business_id']] = review['text']
     return docs
     
-def kmpp(k, X):
+def kmpp(k, X, compare=False):
     print("Running k-means++.")
-    km = KMeans(n_clusters=k, init='k-means++', max_iter=100, n_init=1)
+    km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
     data = km.fit_predict(X)
     pca = PCA(n_components=2)
-    transformed_centroids = pca.fit_transform(X.todense())
-    plt.scatter(transformed_centroids[:, 0], transformed_centroids[:, 1], marker='x', c=data)
+    reduced_dimension = pca.fit_transform(X.todense())
+    plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data)
     plt.show()
+    if compare:
+        km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
+        data_info = km.fit_predict(compare)
+        print(len(data_info))
+        plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data_info)
+        plt.show()
+        compare = np.array(compare)
+        plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data)
+        plt.show()
+        plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data_info)
+        plt.show()
+        
+#def knn(k,X,compare=False):
+#    print("Running k nearest neighbors.")
+#    neigh = KNeighborsClassifier(n_neighbors=3)
 
-def test():
+def test(city='Boston', num_reviews=1000):
     
-#    IDs = get_IDs('Boston', num_reviews=1000)
-#    reviews = find_reviews(IDs)
-    reviews = large_reviews
+    IDs = get_IDs(city, num_reviews=num_reviews)
+    reviews = find_reviews(IDs)
+#    reviews = large_reviews
     tokens = combine_reviews(reviews)
     X = create_vector(tokens)
-    kmpp(5, X)
+    info = business_info(IDs)
+    kmpp(5, X, info)
     
+    
+def business_info(IDs):
+    print("Finding lat. and long. for selected businesses.")
+    info = []
+    with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
+        for line in f:
+            data = json.loads(line)
+            if data['business_id'] in IDs:
+                info.append([data['latitude'],data['longitude']])
+    return info
     
 def evaluate_clusters(reviews, max_clusters):
+    """
+    Not mine, taken from online for testing purposes.
+    """
     error = np.zeros(max_clusters+1)
     error[0] = 0;
     for k in range(1,max_clusters+1):
