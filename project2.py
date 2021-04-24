@@ -4,6 +4,9 @@ import numpy as np
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
 import matplotlib.pyplot as plt
+from sklearn import preprocessing
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import classification_report
 #from nltk.tokenize import word_tokenize
 #from nltk.stem import PorterStemmer
 #from nltk.corpus import stopwords
@@ -21,8 +24,8 @@ def get_IDs(city, num_reviews=200, write=False):
     dumped to a xfile.
     """
     
-    print(f"Searching for businesses in {city}.")
-    businessIDs = []
+    print(f"Searching for businesses in {city}.", end=' ')
+    businessIDs = set()
     if write:
         cities = {city: []}
     
@@ -31,13 +34,14 @@ def get_IDs(city, num_reviews=200, write=False):
             data = json.loads(line) # Convert to python dict
             if data['city'] == city: # Look only for the city we want
                 if data['review_count'] > num_reviews:
-                    businessIDs.append(data['business_id'])
+                    businessIDs.add(data['business_id'])
                     if write:
                         cities[city].append(data)
             
     if write:
         with open(f'{city}.json', 'w') as f:
             json.dump(cities,f, indent=2)
+    print(f"Identified {len(businessIDs)} businesses.")
     return businessIDs
             
 
@@ -47,13 +51,14 @@ def find_reviews(IDs):
     dataset and return a list of all of the reviews about those businesses.
     """
 
-    print("Finding reviews for selected businesses.")
+    print("Finding reviews for selected businesses.", end=' ')
     reviews = []
     with open("yelp_academic_dataset_review.json", encoding='utf-8') as f:
         for line in f:
             data = json.loads(line)
             if data['business_id'] in IDs:
                 reviews.append(data)
+    print(f"Found {len(reviews)} reviews.")
     return reviews
 
 
@@ -70,7 +75,7 @@ def find_reviews(IDs):
 #    return tokens
     
 
-def create_vector(reviews):
+def create_vector(reviews, knn=False):
     """
     Given a dictionary where each key is a business ID and each value is a long 
     string containing the text for reviews for that business, returns the 
@@ -78,13 +83,21 @@ def create_vector(reviews):
     """
     
     print("Creating matrix from documents.")
-    tokens = []
+    tokens = set()
+    y = []
     for key in reviews:
-        tokens.append(reviews[key])
-    vectorizer = TfidfVectorizer(max_df=0.5, max_features=30,
+        tokens.add(reviews[key])
+        if knn:
+            y.append(knn[key]) # Convert float to category
+    if knn:
+        le = preprocessing.LabelEncoder()
+        y = le.fit_transform(y)
+    vectorizer = TfidfVectorizer(max_df=0.5,
                                  min_df=2, stop_words='english',
                                  use_idf=True)
     X = vectorizer.fit_transform(tokens)
+    if knn:
+        return X,y
     return X
     
 def combine_reviews(reviews):
@@ -113,7 +126,6 @@ def kmpp(k, X, compare=False):
     if compare:
         km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
         data_info = km.fit_predict(compare)
-        print(len(data_info))
         plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data_info)
         plt.show()
         compare = np.array(compare)
@@ -121,6 +133,27 @@ def kmpp(k, X, compare=False):
         plt.show()
         plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data_info)
         plt.show()
+        print(clustering_similarity(data,data_info, k))
+        
+def knn(X,y, X_test, y_test):
+    neigh = KNeighborsClassifier()
+    neigh.fit(X, y)
+    colors = neigh.predict(X_test)
+    pca = PCA(n_components=2)
+    reduced_dimension = pca.fit_transform(X_test.todense())
+    plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=colors)
+    plt.show()
+    print(classification_report(y_test, colors))
+    
+        
+def clustering_similarity(c1, c2, k):
+    assert len(c1) == len(c2), "These are not clusterings of the same dataset"
+    
+    similarity = 0
+    for x in range(len(c1)):
+        for y in range(len(c1)):
+            similarity += ((c1[x]==c1[y])^(c2[x]==c2[y]))
+    return similarity
         
 #def knn(k,X,compare=False):
 #    print("Running k nearest neighbors.")
@@ -130,11 +163,14 @@ def test(city='Boston', num_reviews=1000):
     
     IDs = get_IDs(city, num_reviews=num_reviews)
     reviews = find_reviews(IDs)
-#    reviews = large_reviews
+    stars = business_stars(IDs)
+##    reviews = large_reviews
     tokens = combine_reviews(reviews)
-    X = create_vector(tokens)
-    info = business_info(IDs)
-    kmpp(5, X, info)
+    X,y = create_vector(tokens, stars)
+    X, X_test, y, y_test = train_test_split(X, y, test_size=0.33)
+    knn(X, y, X_test, y_test)
+#    info = business_info(IDs)
+#    kmpp(5, X, info)
     
     
 def business_info(IDs):
@@ -146,6 +182,16 @@ def business_info(IDs):
             if data['business_id'] in IDs:
                 info.append([data['latitude'],data['longitude']])
     return info
+
+def business_stars(IDs):
+    print("Finding ratings for selected businesses.")
+    stars = {}
+    with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
+        for line in f:
+            data = json.loads(line)
+            if data['business_id'] in IDs:
+                stars[data['business_id']]=data['stars']
+    return stars
     
 def evaluate_clusters(reviews, max_clusters):
     """
