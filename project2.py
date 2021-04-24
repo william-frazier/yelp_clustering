@@ -1,17 +1,13 @@
 
 
 import numpy as np
+import matplotlib.pyplot as plt
+import json
 from sklearn.decomposition import PCA
 from sklearn.feature_extraction.text import TfidfVectorizer
-import matplotlib.pyplot as plt
-from sklearn import preprocessing
+from sklearn.preprocessing import LabelEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
-#from nltk.tokenize import word_tokenize
-#from nltk.stem import PorterStemmer
-#from nltk.corpus import stopwords
-import json
-#import re
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
 
@@ -61,20 +57,6 @@ def find_reviews(IDs):
     print(f"Found {len(reviews)} reviews.")
     return reviews
 
-
-#def tokenize_reviews(review):
-#    stop_words = set(stopwords.words('english')) 
-#    punctuation = re.compile(r'[-.?!,:;()|0-9]')
-#    tokenized_words = word_tokenize(review)
-#    tokens = []
-#    pst = PorterStemmer()
-#    for word in tokenized_words:
-#        word = punctuation.sub("", word)
-#        if word not in stop_words and word:
-#            tokens.append(pst.stem(word))
-#    return tokens
-    
-
 def create_vector(reviews, knn=False):
     """
     Given a dictionary where each key is a business ID and each value is a long 
@@ -88,15 +70,15 @@ def create_vector(reviews, knn=False):
     for key in reviews:
         tokens.add(reviews[key])
         if knn:
-            y.append(knn[key]) # Convert float to category
+            y.append(knn[key])
     if knn:
-        le = preprocessing.LabelEncoder()
-        y = le.fit_transform(y)
+        le = LabelEncoder()
+        y = le.fit_transform(y) # Converts floats to ints so we can use knn
     vectorizer = TfidfVectorizer(max_df=0.5,
                                  min_df=2, stop_words='english',
                                  use_idf=True)
     X = vectorizer.fit_transform(tokens)
-    if knn:
+    if knn: # Probably not the best way to do this but it's ok for class
         return X,y
     return X
     
@@ -116,31 +98,49 @@ def combine_reviews(reviews):
     return docs
     
 def kmpp(k, X, compare=False):
+    """
+    Run k-means++. Takes as input a number of clusters k, and a TF-IDF matrix X.
+    If compare is set to a different matrix, the algorithm will also show the 
+    clustering based on those features. I use it for lattitude and longitude and
+    it currently only works for 2-d matrices but that could be fixed.
+    """
+    
     print("Running k-means++.")
     km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
-    data = km.fit_predict(X)
-    pca = PCA(n_components=2)
+    data = km.fit_predict(X) # First, we run k-means++
+    pca = PCA(n_components=2) # Then we transform our data
     reduced_dimension = pca.fit_transform(X.todense())
+    # Display our predictions on the reduced dimensions
     plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data)
     plt.show()
     if compare:
         km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
-        data_info = km.fit_predict(compare)
+        data_info = km.fit_predict(compare) # If compare is a matrix, run k-means on it
         plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data_info)
         plt.show()
+        # Code below plots the two runs of k-means++ we have done by lat. and long.
+        # Not very important, I just wanted to see
         compare = np.array(compare)
         plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data)
         plt.show()
         plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data_info)
         plt.show()
-        print(clustering_similarity(data,data_info, k))
+#        print(clustering_similarity(data,data_info, k))
         
-def knn(X,y, X_test, y_test):
-    neigh = KNeighborsClassifier()
+def knn(X, y, X_test, y_test, k=5):
+    """
+    Runs k-nearest neighbors algorithm. Takes as input a TF-IDF matrix X, a 
+    list of labels for those points y, a test set X_test, and the labels for 
+    that test set y_test. Optionally can be given a value k to change the 
+    number of neighbors in the classifier.
+    """
+    
+    neigh = KNeighborsClassifier(n_neighbors=k)
     neigh.fit(X, y)
-    colors = neigh.predict(X_test)
-    pca = PCA(n_components=2)
+    colors = neigh.predict(X_test) # Run predictions on all the data
+    pca = PCA(n_components=2) # Then reduce the dimensions
     reduced_dimension = pca.fit_transform(X_test.todense())
+    # Plot the predicitons on the reduced dimensions
     plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=colors)
     plt.show()
     print(classification_report(y_test, colors))
@@ -154,26 +154,30 @@ def clustering_similarity(c1, c2, k):
         for y in range(len(c1)):
             similarity += ((c1[x]==c1[y])^(c2[x]==c2[y]))
     return similarity
-        
-#def knn(k,X,compare=False):
-#    print("Running k nearest neighbors.")
-#    neigh = KNeighborsClassifier(n_neighbors=3)
 
-def test(city='Boston', num_reviews=1000):
-    
+def test(city='Boston', num_reviews=1000, method="k++"):
+            
     IDs = get_IDs(city, num_reviews=num_reviews)
     reviews = find_reviews(IDs)
-    stars = business_stars(IDs)
-##    reviews = large_reviews
+    #reviews = large_reviews
     tokens = combine_reviews(reviews)
-    X,y = create_vector(tokens, stars)
-    X, X_test, y, y_test = train_test_split(X, y, test_size=0.33)
-    knn(X, y, X_test, y_test)
-#    info = business_info(IDs)
-#    kmpp(5, X, info)
+    if method == 'k++':
+        X = create_vector(tokens)
+        info = business_info(IDs)
+        kmpp(5, X, info)
+    else:
+        stars = business_stars(IDs)
+        X,y = create_vector(tokens, stars)
+        X, X_test, y, y_test = train_test_split(X, y, test_size=0.25)
+        knn(X, y, 5, X_test, y_test)
+
     
     
 def business_info(IDs):
+    """
+    Given a list of business IDs, returns a list of latitudes and longitudes.
+    """
+    
     print("Finding lat. and long. for selected businesses.")
     info = []
     with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
@@ -184,6 +188,11 @@ def business_info(IDs):
     return info
 
 def business_stars(IDs):
+    """
+    Given a list of business IDs, returns a dictionary where the keys are 
+    business IDs and the values are the rating for that business.
+    """
+    
     print("Finding ratings for selected businesses.")
     stars = {}
     with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
@@ -197,6 +206,7 @@ def evaluate_clusters(reviews, max_clusters):
     """
     Not mine, taken from online for testing purposes.
     """
+    
     error = np.zeros(max_clusters+1)
     error[0] = 0;
     for k in range(1,max_clusters+1):
