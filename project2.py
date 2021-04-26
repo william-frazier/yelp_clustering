@@ -10,6 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report
 from sklearn.cluster import KMeans
 from sklearn.neighbors import KNeighborsClassifier
+import pickle
 
 
 
@@ -30,9 +31,11 @@ def get_IDs(city, num_reviews=200, write=False):
             data = json.loads(line) # Convert to python dict
             if data['city'] == city: # Look only for the city we want
                 if data['review_count'] > num_reviews:
-                    businessIDs.add(data['business_id'])
-                    if write:
-                        cities[city].append(data)
+                    if data['categories']:
+                        if 'Chinese' in data['categories']:
+                            businessIDs.add(data['business_id'])
+                            if write:
+                                cities[city].append(data)
             
     if write:
         with open(f'{city}.json', 'w') as f:
@@ -57,7 +60,7 @@ def find_reviews(IDs):
     print(f"Found {len(reviews)} reviews.")
     return reviews
 
-def create_vector(reviews, knn=False):
+def create_vector(reviews, knn=False, write=False):
     """
     Given a dictionary where each key is a business ID and each value is a long 
     string containing the text for reviews for that business, returns the 
@@ -78,23 +81,29 @@ def create_vector(reviews, knn=False):
                                  min_df=2, stop_words='english',
                                  use_idf=True)
     X = vectorizer.fit_transform(tokens)
+    if write:
+        pickle.dump(X, open(f"{write}-vector.pkl", "wb"))
     if knn: # Probably not the best way to do this but it's ok for class
         return X,y
     return X
     
-def combine_reviews(reviews):
+def combine_reviews(reviews, write=False):
     """
     Given a list of reviews, this function will return a dictionary where the 
     key is a business ID and the value is a long string of every review for 
     that business.
     """
     
+    print("Combining reviews.")
     docs = {}
     for review in reviews:
         try:
             docs[review['business_id']] += review['text']
         except:
-            docs[review['business_id']] = review['text']
+             docs[review['business_id']] = review['text']
+    if write:
+        pickle.dump(docs, open(f"{write}-reviews.pkl", "wb"))    
+    
     return docs
     
 def kmpp(k, X, compare=False):
@@ -105,9 +114,10 @@ def kmpp(k, X, compare=False):
     it currently only works for 2-d matrices but that could be fixed.
     """
     
-    print("Running k-means++.")
+    print(f"Running k-means++ with k={k}.")
     km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
     data = km.fit_predict(X) # First, we run k-means++
+    error = km.inertia_
     pca = PCA(n_components=2) # Then we transform our data
     reduced_dimension = pca.fit_transform(X.todense())
     # Display our predictions on the reduced dimensions
@@ -118,7 +128,7 @@ def kmpp(k, X, compare=False):
         data_info = km.fit_predict(compare) # If compare is a matrix, run k-means on it
         plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data_info)
         plt.show()
-        # Code below plots the two runs of k-means++ we have done by lat. and long.
+#         Code below plots the two runs of k-means++ we have done by lat. and long.
         # Not very important, I just wanted to see
         compare = np.array(compare)
         plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data)
@@ -126,7 +136,8 @@ def kmpp(k, X, compare=False):
         plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data_info)
         plt.show()
 #        print(clustering_similarity(data,data_info, k))
-        
+    return error
+            
 def knn(X, y, X_test, y_test, k=5):
     """
     Runs k-nearest neighbors algorithm. Takes as input a TF-IDF matrix X, a 
@@ -155,23 +166,44 @@ def clustering_similarity(c1, c2, k):
             similarity += ((c1[x]==c1[y])^(c2[x]==c2[y]))
     return similarity
 
-def test(city='Boston', num_reviews=1000, method="k++"):
-            
-    IDs = get_IDs(city, num_reviews=num_reviews)
-    reviews = find_reviews(IDs)
-    #reviews = large_reviews
-    tokens = combine_reviews(reviews)
-    if method == 'k++':
-        X = create_vector(tokens)
-        info = business_info(IDs)
-        kmpp(5, X, info)
+def test(city='Boston', num_reviews=1000, method="k++", read=False):
+    
+
+    if read and method == 'k++': # Saves time
+        X = pickle.load(open(read, 'rb'))
+        evaluate_clusters(X, 5)
+    else:
+        
+        IDs = get_IDs(city, num_reviews=num_reviews)
+        reviews = find_reviews(IDs)
+
+        tokens = combine_reviews(reviews)
+        if method == 'k++':
+            if not read:
+                X = create_vector(tokens)
+            evaluate_clusters(X, 20)
     else:
         stars = business_stars(IDs)
         X,y = create_vector(tokens, stars)
         X, X_test, y, y_test = train_test_split(X, y, test_size=0.25)
-        knn(X, y, 5, X_test, y_test)
+        knn(X, y, X_test, y_test, 3)
 
     
+    
+def evaluate_clusters(reviews, max_clusters, info=None):
+    """
+    Not mine, taken from online for testing purposes.
+    """
+    
+    error = np.zeros(max_clusters+1)
+    error[0] = 0;
+    for k in range(1,max_clusters+1):
+        error[k] = kmpp(k, reviews, info)
+    plt.figure(1)
+    plt.plot(range(1,len(error)),error[1:])
+    plt.xlabel('Number of clusters')
+    plt.ylabel('Error')    
+
     
 def business_info(IDs):
     """
@@ -202,21 +234,6 @@ def business_stars(IDs):
                 stars[data['business_id']]=data['stars']
     return stars
     
-def evaluate_clusters(reviews, max_clusters):
-    """
-    Not mine, taken from online for testing purposes.
-    """
-    
-    error = np.zeros(max_clusters+1)
-    error[0] = 0;
-    for k in range(1,max_clusters+1):
-        kmeans = KMeans(init='k-means++', n_clusters=k)
-        kmeans.fit_predict(reviews)
-        error[k] = kmeans.inertia_
-    plt.figure(1)
-    plt.plot(range(1,len(error)),error[1:])
-    plt.xlabel('Number of clusters')
-    plt.ylabel('Error')    
 
     
 reviews_over_1000 = [{'review_id': 'xq1HkKoLzCdOlJkVzUeg5Q',
