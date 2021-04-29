@@ -1,137 +1,69 @@
+# William Frazier
+# CS 565 Project 2
+# Spring 2021
+# Boston University
 
 
-import numpy as np
-import matplotlib.pyplot as plt
-import matplotlib.cm as cm
 import json
-from sklearn.decomposition import PCA
-from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS, CountVectorizer
-from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, silhouette_samples, silhouette_score
-from sklearn.cluster import KMeans
-from sklearn.neighbors import KNeighborsClassifier
-from nltk.sentiment import SentimentIntensityAnalyzer
 import pickle
+import numpy as np
 from statistics import mean
+import matplotlib.cm as cm
+import matplotlib.pyplot as plt
+from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
+from sklearn.preprocessing import LabelEncoder
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import train_test_split
+from sklearn.exceptions import UndefinedMetricWarning
+from nltk.sentiment import SentimentIntensityAnalyzer
+from sklearn.metrics import classification_report, silhouette_samples, silhouette_score
+from sklearn.feature_extraction.text import TfidfVectorizer, ENGLISH_STOP_WORDS, CountVectorizer
 
-#['72PQGMhrEcIuWH-S44TprA',
-# 'nzyu4lcjIOH_zPMlaPbmrw',
-# 'AA3s5dGi0fQCwBZnhFb2eQ',
-# 'tDPO_D0tjoWUOzqgRUcDkA',
-# 'DIRXMPneSiHoOani8QnI3A',
-# 'MgAG54IJeQvT3BQoSNwWBw',
-# '_A6fj7b4qwnmcEEOYOu5vw',
-# 'wOsTAvCIVjB-fPQBJepMQg',
-# '9PLGvlh7gi8AMjL_4VySBA',
-# 'GVFqAZYceTZFrrzkohe59w',
-# 'acRkrnOMeIiJSdbIBqDJvQ',
-# 'SvkuIlhOeQZCznPbABa7KQ',
-# '7dzyLlNQXwuPsmvquuaVIA',
-# 'DoS7jpSaKT7Ru2NAYDCIKg',
-# 'KFVgWwwGgepVeR6tDs3yfQ',
-# 'g3OJi94JTYhIoEwqNfhI8g',
-# 'Px5OwdzKaMiwzvSFc_3Qkg',
-# 'j7VXGiKU_mvP7NrlfqVhJw',
-# 'dB42voEqPL4lcAZIe6TEQQ',
-# 'Lo7ggtNcJH_he6f9osnBfg',
-# 'CzN-Nozj-x6rYU1cqSKHnQ',
-# 'gYMzNlDMnwJj5vsEX_NosA',
-# 'uJQGdkNrzEL6pTcW3MmNRA',
-# 'pnVPqIpOfpToxA6OI2P81g',
-# 'SRxyxADqvY3gb8f76nDRTQ',
-# '0oYvvuKf15nZ05iLd1TC8Q',
-# 'T85lsS8Qz8yUNOfPj4sMmQ',
-# 'XrY1nmgajhBinQmJRZ6wfQ',
-# 'L7tgbiUHe6gLbvbAq9CEFw',
-# '9Jiax4wZ94ZmMcMzmpdvJA',
-# 'sgJzINGN3Njv_Q_h_Xggyw',
-# 'O4D1fulSH8S-PwaX4-PdJw',
-# 'WX5HDdUTwYWhu6XDtawDhw',
-# '44uFnSanJ1umQRsYFm5zCQ',
-# 'n_L84L3OrtR43x8ewYHTHw',
-# 'expooI-n3P-brTBFKs2Qxg',
-# 'SAEDSSDFKFO8ke1SSnTuzw',
-# 'SJy51U18u3zJ_TccSKpPdQ',
-# 'aYlIvAqd6cnHX6AGkhjq5Q',
-# 'DImi8qeCP-OUaLA8L2QR6A',
-# 'QbG-Ju21BhbPaNztMx8p1w',
-# 'AkaYjquGGgmjvmnii8eELQ',
-# 'RtY75rfzEP19n9Ou4DSEHQ',
-# '-uPcDd5ulyWh4iZm--LY-Q',
-# 'oI2gEfrxxSdn55mK1pt2iw',
-# 'dmLrPLWGLGkI3qBixFDEvw',
-# '8OlvNJkV6B4_h0GIijuuCw',
-# '7pV_lZa8FZz2_54BvwFywQ',
-# 'QDlctMcZhlwJl9S0dEqtKA',
-# 'mV7NZgzVGvuwAEfzz7xWJA',
-# 'nV4Fso9lyZJ2W_DBYL7agw',
-# 'MnA_dF1xkX-bnLR6hq4EmQ',
-# '4mClpg19Ntiw1s75kF19Bg',
-# '63q10aw-6XREzuRadM3_HA',
-# 'w6ikRnLVAyNjv_2WJZoY8w',
-# 'gwm_eHIetrkMaOAZVem5qQ',
-# 'SP97o6xotOT4fATH9HDsmQ',
-# 'OztN9An_uaa38MZZ2K8a_g',
-# 'IRQfnjyFcg3j1Z3i7kPIfg',
-# 'ChzM9HTXqqe0VdXSbMGoqQ',
-# 'iSE_LieK4AUM8A5c0-dlzg',
-# 'iQyKo3VDNzRbGQPAqFkZPA',
-# 'ZJw7_sCOfaUmib1Q0vBAZA',
-# 'C9SJfJJmlqDvsgSNR569Xw',
-# 'moghdY0n6S7FWUL2eL2N5w',
-# 'G8mYHODB3zYw4RsSVebACw',
-# 'Dp6uvrBNLkimgP1-iIAo4A',
-# 'hHVq3NS0ZW9G-ZcLurvUJQ',
-# 'Yza2V-zlc1iCCeiHxhdKDA',
-# 'kb0VfKZKHHhvDze3JZqi0Q',
-# 'BBblBHBnjpepOP1Q1kfi1A',
-# '2bncbx08BFs_IO6H-yWBxw',
-# '6yPo1VyadJozt8KBTOhPdQ',
-# 'mppWsveP2lfKLv2O7HuiCg',
-# 'iOoBA4u3N9ic4m4zC99brQ',
-# 'joA7OEK0JqjRT3Qx7c9r-w',
-# 'FDeCah18Y-SAuVvd3IZvCw',
-# 'T6cTsRXJ8Yze9DM8L--svA']
-#[0 3 3 0 1 1 3 3 1 0 0 1 1 0 3 3 3 3 1 3 3 0 3 3 0 0 3 1 0 3 0 0 1 0 3 0 1
-# 0 0 3 0 3 3 3 3 1 3 1 0 2 0 3 3 0 3 0 0 1 3 0 0 3 3 1 3 0 3 0 1 0 3 1 3 3
-# 1 3 1 3]
+def some_examples(city='Boston', num_reviews=100):
+    """
+    Here's some simple drivercode to make viewing my code a bit easier.
+    """
+    
+    IDs = get_IDs(city, num_reviews)
+    reviews = find_reviews(IDs)
+    combined_reviews = combine_reviews(reviews)
+    X = create_vector(combined_reviews)
+    info = business_info(IDs)
+    info_usable_form = []
+    stars = business_stars(IDs)
+    for key in info:
+        info_usable_form.append(info[key])
+    input("For each iteration, graphs are on PCA axes. First graph is colored by clustering algorithm while second graph is colored by lat. and long. Press enter to run k-means++.")
+    evaluate_clusters(X, 10, info_usable_form)
+    input("Press enter to run knn.")
+    X,y = create_vector(combined_reviews, stars)
+    knn(X,y)
+    print("Note that the accuracy of my knn varies wildly based on which points end in the test set. It is much better at classifying highly rated restaurants as there are so few low-rated ones in the dataset.")
+    input("Press enter to explore sentiment analysis.")
+    sentiment_scores = sentiment(reviews)
+    sentiment_scores_usable_form, y, keys = sentiment_stars(sentiment_scores, stars)
+    kmpp_sentiment_analysis(4, sentiment_scores_usable_form.reshape(-1,1), y)
+    input("Here we see clustering where the x-axis is our sentiment analysis and the color is the true clustering label. Press enter to see knn.")
+    y_prime = []
+    print("hit")
+    for i in y:
+        y_prime.append(int(i)) # Convert away from floats
+    print("Second hit")
+    knn_sentiment_analysis(sentiment_scores_usable_form.reshape(-1,1)[:-20],y_prime[:-20],sentiment_scores_usable_form.reshape(-1,1)[-20:],y_prime[-20:])
 
-def avg_stars(keys,data,stars):
-    total={4:[],0:[],2:[],3:[]}
-    for i in range(len(data)):
-        total[data[i]].append(stars[keys[i]])
-    return total
 
-def sentiment_stars(sentiment, stars):
-    X = []
-    y = []
-    keys = []
-    for key in sentiment:
-        X.append(mean(sentiment[key]))
-        y.append(stars[key])
-        keys.append(key)
-    return np.array(X),y,keys
 
-def sentiment(reviews):
-    sia = SentimentIntensityAnalyzer()
-    docs = {}
-    for review in reviews:
-        try:
-            docs[review['business_id']].append(sia.polarity_scores(review['text'])["compound"])
-            
-        except:
-             docs[review['business_id']] = [sia.polarity_scores(review['text'])["compound"]]
-    tokens = []
-    for key in docs:
-        tokens.append(mean(docs[key]))
-    return docs
+
+###########################
+# Preprocessing Functions #
+###########################
 
 def get_IDs(city, num_reviews=200, write=False):
     """
     Get the business IDs for restaurants in given city which have more than
     num_reviews reviews. If write is set to true then their JSON data will be 
-    dumped to a xfile.
+    dumped to a file.
     """
     
     print(f"Searching for businesses in {city}.", end=' ')
@@ -145,7 +77,7 @@ def get_IDs(city, num_reviews=200, write=False):
             if data['city'] == city: # Look only for the city we want
                 if data['review_count'] > num_reviews:
                     if data['categories']:
-                        if 'Chinese' in data['categories']:
+                        if 'Chinese' in data['categories']: # Only Chinese restaurants
                             businessIDs.add(data['business_id'])
                             if write:
                                 cities[city].append(data)
@@ -155,55 +87,33 @@ def get_IDs(city, num_reviews=200, write=False):
             json.dump(cities,f, indent=2)
     print(f"Identified {len(businessIDs)} businesses.")
     return businessIDs
-            
 
-def find_reviews(IDs):
+
+def find_reviews(IDs, write=False):
     """
     Given a list of buisness IDs, this function will search through the review
-    dataset and return a list of all of the reviews about those businesses.
+    dataset and return a list of all of the reviews about those businesses. If
+    write is a string, reviews will be saved to a file.
     """
 
-    print("Finding reviews for selected businesses.", end=' ')
+    print(f"Finding reviews for the {len(IDs)} selected businesses.", end=' ')
     reviews = []
     with open("yelp_academic_dataset_review.json", encoding='utf-8') as f:
         for line in f:
             data = json.loads(line)
             if data['business_id'] in IDs:
                 reviews.append(data)
+    if write:
+        pickle.dump(reviews, open(f"{write}-JSON-Reviews.pkl", "wb"))
     print(f"Found {len(reviews)} reviews.")
     return reviews
 
-def create_vector(reviews, knn=False, write=False):
-    """
-    Given a dictionary where each key is a business ID and each value is a long 
-    string containing the text for reviews for that business, returns the 
-    TF-IDF matrix.
-    """
-    
-#    print("Creating matrix from documents.")
-    tokens = set()
-    y = []
-    for key in reviews:
-        tokens.add(reviews[key])
-        if knn:
-            y.append(knn[key])
-    if knn:
-        le = LabelEncoder()
-        y = le.fit_transform(y) # Converts floats to ints so we can use knn
-    vectorizer = TfidfVectorizer(min_df=4, 
-                                 stop_words='english')
-    X = vectorizer.fit_transform(tokens)
-    if write:
-        pickle.dump(X, open(f"{write}-vector.pkl", "wb"))
-    if knn: # Probably not the best way to do this but it's ok for class
-        return X,y
-    return X
-    
+
 def combine_reviews(reviews, write=False):
     """
     Given a list of reviews, this function will return a dictionary where the 
     key is a business ID and the value is a long string of every review for 
-    that business.
+    that business. If write is a string, the dictionary will be saved to a file.
     """
     
     print("Combining reviews.")
@@ -217,7 +127,131 @@ def combine_reviews(reviews, write=False):
         pickle.dump(docs, open(f"{write}-reviews.pkl", "wb"))    
     
     return docs
+
+
+def create_vector(reviews, stars=False, count=False, stop='english', write=False):
+    """
+    Given a dictionary where each key is a business ID and each value is a long 
+    string containing the text for reviews for that business, returns the 
+    TF-IDF matrix. If stars is set to the output of business_stars(), function 
+    will return y along with X. The reason I do it this way is to ensure the 
+    same ordering. If count is set to True, a count matrix will be returned
+    instead of a TF-IDF matrix. stop can be changed to my_stop_words to use my
+    custom stop words list. If write is set to a string, output will be saved
+    to a file.
+    """
     
+    print("Creating matrix from documents.")
+    tokens = [] # Set would be faster but we need to keep the ordering
+    y = []
+    for key in reviews:
+        tokens.append(reviews[key])
+        if stars:
+            y.append(stars[key])
+    if stars:
+        le = LabelEncoder()
+        y = le.fit_transform(y) # Converts floats to ints so we can use knn
+    if count:
+        vectorizer = CountVectorizer(stop_words=stop)
+    else:
+        vectorizer = TfidfVectorizer(min_df=4, 
+                                 stop_words=stop)
+    X = vectorizer.fit_transform(tokens)
+    if write:
+        pickle.dump(X, open(f"{write}-vector.pkl", "wb"))
+    if stars: # Probably not the best way to do this but it's ok for class
+        return X,y
+    return X
+
+
+def business_info(IDs):
+    """
+    Given a list of business IDs, returns a dictionary where keys are business
+    IDs and values are the latitude and longitude of that business. Probably 
+    should be combined with following function but this is easier. There was a
+    version that also worked with categories but I've removed it because I 
+    didn't find it particularly useful.
+    """
+    
+    print("Finding lat. and long. for selected businesses.")
+    info = {} # Dictionary allows us to maintain ordering
+    with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
+        for line in f:
+            data = json.loads(line)
+            if data['business_id'] in IDs:
+                info[data['business_id']]=[data['latitude'],data['longitude']]
+    return info
+
+
+def business_stars(IDs):
+    """
+    Given a list of business IDs, returns a dictionary where the keys are 
+    business IDs and the values are the rating for that business.
+    """
+    
+    print("Finding ratings for selected businesses.")
+    stars = {} # Dictionary allows us to maintain ordering
+    with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
+        for line in f:
+            data = json.loads(line)
+            if data['business_id'] in IDs:
+                stars[data['business_id']]=data['stars']
+    return stars
+
+
+
+
+
+######################
+# Sentiment Analysis #
+######################
+
+def sentiment(reviews):
+    """
+    Given a list of reviews, returns VADER's sentiment analysis of each review
+    stored as a dictionary where the key is the business ID and the value is 
+    a list of all sentiment scores.
+    """
+    
+    print("Performing sentiment analysis.")
+    sia = SentimentIntensityAnalyzer()
+    docs = {}
+    for review in reviews:
+        try:
+            docs[review['business_id']].append(sia.polarity_scores(review['text'])["compound"])
+            
+        except:
+             docs[review['business_id']] = [sia.polarity_scores(review['text'])["compound"]]
+    return docs
+
+
+def sentiment_stars(sentiment, stars):
+    """
+    Useful function for testing. Given a sentiment dictionary from sentiment()
+    and stars from business_stars(), it returns X (a numpy array where each
+    value is the mean of the sentiment scores for a business), y (a list where
+    each value is the number of stars for a business), and keys (a list of all
+    business IDs in this collection). This is all done in one function to ensure
+    the ordering remains the same.
+    """
+    
+    X = []
+    y = []
+    keys = []
+    for key in sentiment:
+        X.append(mean(sentiment[key]))
+        y.append(stars[key])
+        keys.append(key)
+    return np.array(X),y,keys
+
+
+
+
+
+########################
+# K-means and KNN code #
+########################
+
 def kmpp(k, X, compare=False):
     """
     Run k-means++. Takes as input a number of clusters k, and a TF-IDF matrix X.
@@ -230,91 +264,81 @@ def kmpp(k, X, compare=False):
     km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
     data = km.fit_predict(X) # First, we run k-means++
     error = km.inertia_
-#    pca = PCA(n_components=2) # Then we transform our data
-#    reduced_dimension = pca.fit_transform(X.todense())
+    pca = PCA(n_components=2) # Then we transform our data
+    reduced_dimension = pca.fit_transform(X.todense())
     # Display our predictions on the reduced dimensions
-#    for item in range(len(data)):
-#        print(f"Cat {data[item]} for great, like, amazing, bad:", X.todense()[:,item][37], X.todense()[:,item][42],X.todense()[:,item][0],X.todense()[:,item][1])
-#    plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data)
-#    plt.show()
-    plt.scatter(X,data)
+    plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data)
     plt.show()
     if compare:
         km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
         data_info = km.fit_predict(compare) # If compare is a matrix, run k-means on it
-#        plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data_info)
+        plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=data_info)
+        plt.show()
+        # Code below plots the two runs of k-means++ we have done by lat. and long.
+        # Not very important, I just wanted to see. Feel free to uncomment.
+#        compare = np.array(compare)
+#        plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data)
 #        plt.show()
-#         Code below plots the two runs of k-means++ we have done by lat. and long.
-        # Not very important, I just wanted to see
-        compare = np.array(compare)
-        plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data)
-        plt.show()
-        plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data_info)
-        plt.show()
+#        plt.scatter(compare[:,0], compare[:, 1], marker='x', c=data_info)
+#        plt.show()
 #        print(clustering_similarity(data,data_info, k))
     return error
 
-my_stop = [24.386890085173395, 19.278093958789782, 16.304218737011457, 14.276298723700112, 12.917921166770071, 11.889188365969595, 10.976544346187298, 9.916006883912797, 9.386247518091642, 8.437349514223625]
-english = [20.793341030153236, 17.17140735956581, 14.609868321657656, 12.841314810641412, 11.466813783334018, 10.61650510157248, 9.553411797431144, 9.048515727506105, 8.20464564872761, 7.7046262848944576]      
-      
-def knn(X, y, k=19, X_test=0,y_test=0):
+def knn(X, y, k=8):
     """
-    Runs k-nearest neighbors algorithm. Takes as input a TF-IDF matrix X, a 
-    list of labels for those points y, a test set X_test, and the labels for 
-    that test set y_test. Optionally can be given a value k to change the 
-    number of neighbors in the classifier.
+    Runs k-nearest neighbors algorithm. Takes as input a TF-IDF matrix X, and a 
+    list of labels for those points y. Optionally can be given a value k to change 
+    the number of neighbors in the classifier.
     """
 
-#    X, X_test, y, y_test = train_test_split(X, y, test_size=0.25)
+    X, X_test, y, y_test = train_test_split(X, y, test_size=0.20)
     neigh = KNeighborsClassifier(n_neighbors=k)
     neigh.fit(X, y)
     colors = neigh.predict(X_test) # Run predictions on all the data
-#    pca = PCA(n_components=2) # Then reduce the dimensions
-#    reduced_dimension = pca.fit_transform(X_test.todense())
+    pca = PCA(n_components=2) # Then reduce the dimensions
+    reduced_dimension = pca.fit_transform(X_test.todense())
     # Plot the predicitons on the reduced dimensions
-#    plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=colors)
-    plt.scatter(X_test,colors,c=y_test)
-    print(colors)
+    plt.scatter(reduced_dimension[:, 0], reduced_dimension[:, 1], marker='x', c=colors)
     plt.show()
     print(classification_report(y_test, colors))
     
-        
-def clustering_similarity(c1, c2):
-    assert len(c1) == len(c2), "These are not clusterings of the same dataset"
+def knn_sentiment_analysis(X, y, X_test, y_test, k=8):
+    """
+    Runs k-nearest neighbors algorithm. Takes as input a sentiment analysis np 
+    array X, and a list of labels for those points y. Optionally can be given a
+    value k to change the number of neighbors in the classifier. Different than
+    knn() just because it's easier for demonstration purposes.
+    """
+
+    neigh = KNeighborsClassifier(n_neighbors=k)
+    neigh.fit(X, y)
+    colors = neigh.predict(X_test) # Run predictions on all the data
+    # Plot the predicitons on the reduced dimensions
+    plt.scatter(X_test, colors, marker='x', c=y_test)
+    plt.show()
+    print(classification_report(y_test, colors))
     
-    similarity = 0
-    for x in range(len(c1)):
-        for y in range(len(c1)):
-            similarity += ((c1[x]==c1[y])^(c2[x]==c2[y]))
-    return similarity
-
-def test(city='Boston', num_reviews=100, method="k++", read=False):
+def kmpp_sentiment_analysis(k, X, y, compare=False):
+    """
+    Run k-means++. Takes as input a number of clusters k, and a TF-IDF matrix X.
+    If compare is set to a different matrix, the algorithm will also show the 
+    clustering based on those features. I use it for lattitude and longitude and
+    it currently only works for 2-d matrices but that could be fixed.
+    """
     
-
-    if read and method == 'k++': # Saves time
-        X = pickle.load(open(read, 'rb'))
-        evaluate_clusters(X, 70)
-    else:
-        
-        IDs = get_IDs(city, num_reviews=num_reviews)
-        reviews = find_reviews(IDs)
-
-        tokens = combine_reviews(reviews)
-        if method == 'k++':
-            info = business_info(IDs)
-            if not read:
-                X = create_vector(tokens)
-            evaluate_clusters(X, 5, info)
-    if method == 'knn':
-        stars = business_stars(IDs)
-        X,y = create_vector(tokens, stars)
-        knn(X, y, 3)
-
+    print(f"Running k-means++ with k={k}.")
+    km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
+    data = km.fit_predict(X) # First, we run k-means++
+    error = km.inertia_
+    # Display our predictions on the reduced dimensions
+    plt.scatter(X, data, marker='x', c=y)
+    plt.show()
+    return error
     
     
 def evaluate_clusters(reviews, max_clusters, info=None):
     """
-    Not mine, taken from online for testing purposes.
+    Not mine, adapted from online for testing purposes.
     """
     
     error = np.zeros(max_clusters+1)
@@ -325,43 +349,50 @@ def evaluate_clusters(reviews, max_clusters, info=None):
     plt.plot(range(1,len(error)),error[1:])
     plt.xlabel('Number of clusters')
     plt.ylabel('Error')    
+    plt.show()
 
-    
-def business_info(IDs):
-    """
-    Given a list of business IDs, returns a list of latitudes and longitudes.
-    """
-    
-    print("Finding lat. and long. for selected businesses.")
-    info = []
-    with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
-        for line in f:
-            data = json.loads(line)
-            if data['business_id'] in IDs:
-                info.append([data['latitude'],data['longitude']])
-    return info
 
-def business_stars(IDs):
-    """
-    Given a list of business IDs, returns a dictionary where the keys are 
-    business IDs and the values are the rating for that business.
-    """
-    
-    print("Finding ratings for selected businesses.")
-    stars = {}
-    with open("yelp_academic_dataset_business.json", encoding='utf-8') as f:
-        for line in f:
-            data = json.loads(line)
-            if data['business_id'] in IDs:
-                stars[data['business_id']]=data['stars']
-    return stars
-    
 
-remove_words = ['15','20','asian','chinatown','boston']
-my_stop_words = ENGLISH_STOP_WORDS.union(remove_words)
+
+####################
+# Helper Functions #
+####################
+
+def categories_stars(keys,data,stars):
+    """
+    Very simple function which takes keys (business IDs to analyze), data (the
+    output of a clustering algorithm), and stars (the output of business_stars()).
+    Function returns a dictionary where keys are cluster labels and values are
+    lists of the stars for each business in that category. Useful for visualizing
+    how an algorithm did.
+    """
+    
+    total={0:[],1:[],2:[],3:[],4:[]}
+    for i in range(len(data)):
+        total[data[i]].append(stars[keys[i]])
+    return total
+
+       
+def clustering_similarity(c1, c2):
+    """
+    My code from project 1. Given two lists of clusterings, it computes a simple
+    similarity score.
+    """
+    
+    assert len(c1) == len(c2), "These are not clusterings of the same dataset"
+    
+    similarity = 0
+    for x in range(len(c1)):
+        for y in range(len(c1)):
+            similarity += ((c1[x]==c1[y])^(c2[x]==c2[y]))
+    return similarity
 
 
 def sil(X,y):
+    """
+    Taken from sklearn's website in order to analyze the silhouette method.
+    """
+    
     X=X.todense()
     for n_clusters in range(2,11):
         # Create a subplot with 1 row and 2 columns
@@ -448,9 +479,26 @@ def sil(X,y):
         plt.suptitle(("Silhouette analysis for KMeans clustering on sample data "
                       "with n_clusters = %d" % n_clusters),
                      fontsize=14, fontweight='bold')
-    
     plt.show()
 
+
+# This code hides an annoying warning, just ignore this  
+def warn(*args, **kwargs):
+    pass
+import warnings
+warnings.warn = warn
+
+
+
+#############
+# Variables #
+#############
+
+remove_words = ['15','20','asian','chinatown','boston'] # I've tried lots of iterations of this
+my_stop_words = ENGLISH_STOP_WORDS.union(remove_words)
+
+
+# Business IDs of Chinese restaurants in Boston with >= 100 reviews
 ids = {'-uPcDd5ulyWh4iZm--LY-Q',
  '0oYvvuKf15nZ05iLd1TC8Q',
  '2bncbx08BFs_IO6H-yWBxw',
@@ -529,3 +577,7 @@ ids = {'-uPcDd5ulyWh4iZm--LY-Q',
  'uJQGdkNrzEL6pTcW3MmNRA',
  'w6ikRnLVAyNjv_2WJZoY8w',
  'wOsTAvCIVjB-fPQBJepMQg'}
+
+if __name__ == '__main__':
+    print("Running example program...")
+    some_examples()
