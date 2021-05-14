@@ -318,7 +318,6 @@ def knn(X, y, k=8):
     the number of neighbors in the classifier.
     """
     
-    assert len(X)==len(y), "X and y must have the same length."
     assert type(k)==int and k>0, "k must be an integer greater than 0."
 
     X, X_test, y, y_test = train_test_split(X, y, test_size=0.20)
@@ -340,7 +339,6 @@ def knn_sentiment_analysis(X, y, X_test, y_test, k=8):
     knn() just because it's easier for demonstration purposes.
     """
     
-    assert len(X)==len(y) and len(X_test)==len(y_test), "X and y must have the same length. X_test and y_test must have the same length."
     assert type(k)==int and k>0, "k must be an integer greater than 0."
 
     neigh = KNeighborsClassifier(n_neighbors=k)
@@ -359,7 +357,6 @@ def kmpp_sentiment_analysis(k, X, y, compare=False):
     it currently only works for 2-d matrices but that could be fixed.
     """
     
-    assert len(X)==len(y), "X and y must have the same length."
     assert type(k)==int and k>0, "k must be an integer greater than 0."
     
     print(f"Running k-means++ with k={k}.")
