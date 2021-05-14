@@ -62,9 +62,13 @@ def some_examples(city='Boston', num_reviews=100):
 def get_IDs(city, num_reviews=200, write=False):
     """
     Get the business IDs for restaurants in given city which have more than
-    num_reviews reviews. If write is set to true then their JSON data will be 
+    num_reviews reviews. If write is set to a string then their JSON data will be 
     dumped to a file.
     """
+    
+    assert type(city)==str, "city must be a String."
+    assert type(num_reviews)==int and num_reviews>=0, "num_reviews must be a non-negative integer."
+    assert type(write)==bool or type(write)==str, "If write is set, it must be a string."
     
     print(f"Searching for businesses in {city}.", end=' ')
     businessIDs = set()
@@ -83,7 +87,7 @@ def get_IDs(city, num_reviews=200, write=False):
                                 cities[city].append(data)
             
     if write:
-        with open(f'{city}.json', 'w') as f:
+        with open(f'{write}-{city}.json', 'w') as f:
             json.dump(cities,f, indent=2)
     print(f"Identified {len(businessIDs)} businesses.")
     return businessIDs
@@ -91,10 +95,13 @@ def get_IDs(city, num_reviews=200, write=False):
 
 def find_reviews(IDs, write=False):
     """
-    Given a list of buisness IDs, this function will search through the review
+    Given a set of buisness IDs, this function will search through the review
     dataset and return a list of all of the reviews about those businesses. If
     write is a string, reviews will be saved to a file.
     """
+    
+    assert type(IDs)==set or type(IDs)==list, "IDs must be a set or list of IDs. See get_IDs() function."
+    assert type(write)==bool or type(write)==str, "If write is set, it must be a string."
 
     print(f"Finding reviews for the {len(IDs)} selected businesses.", end=' ')
     reviews = []
@@ -115,6 +122,9 @@ def combine_reviews(reviews, write=False):
     key is a business ID and the value is a long string of every review for 
     that business. If write is a string, the dictionary will be saved to a file.
     """
+    
+    assert type(reviews)==list, "reviews must be a list of reviews. See find_reviews() function."
+    assert type(write)==bool or type(write)==str, "If write is set, it must be a string."
     
     print("Combining reviews.")
     docs = {}
@@ -141,6 +151,11 @@ def create_vector(reviews, stars=False, count=False, stop='english', write=False
     to a file.
     """
     
+    assert type(reviews)==dict, "reviews must be a dictionary of the form returned by combine_reviews()."
+    assert type(stars)==bool or type(stars)==dict, "If stars is set, it must be set to a dictionary of the form returned by business_stars()."
+    assert type(count)==bool, "count must be a boolean."
+    assert type(write)==bool or type(write)==str, "If write is set, it must be a string."
+    
     print("Creating matrix from documents.")
     tokens = [] # Set would be faster but we need to keep the ordering
     y = []
@@ -166,12 +181,14 @@ def create_vector(reviews, stars=False, count=False, stop='english', write=False
 
 def business_info(IDs):
     """
-    Given a list of business IDs, returns a dictionary where keys are business
+    Given a set of business IDs, returns a dictionary where keys are business
     IDs and values are the latitude and longitude of that business. Probably 
     should be combined with following function but this is easier. There was a
     version that also worked with categories but I've removed it because I 
     didn't find it particularly useful.
     """
+    
+    assert type(IDs)==set or type(IDs)==list, "IDs must be a set or list of IDs. See get_IDs() function."
     
     print("Finding lat. and long. for selected businesses.")
     info = {} # Dictionary allows us to maintain ordering
@@ -188,6 +205,8 @@ def business_stars(IDs):
     Given a list of business IDs, returns a dictionary where the keys are 
     business IDs and the values are the rating for that business.
     """
+    
+    assert type(IDs)==set or type(IDs)==list, "IDs must be a set or list of IDs. See get_IDs() function."
     
     print("Finding ratings for selected businesses.")
     stars = {} # Dictionary allows us to maintain ordering
@@ -213,6 +232,8 @@ def sentiment(reviews):
     a list of all sentiment scores.
     """
     
+    assert type(reviews)==list, "reviews must be a list of reviews. See find_reviews() function."
+    
     print("Performing sentiment analysis.")
     sia = SentimentIntensityAnalyzer()
     docs = {}
@@ -234,6 +255,10 @@ def sentiment_stars(sentiment, stars):
     business IDs in this collection). This is all done in one function to ensure
     the ordering remains the same.
     """
+    
+    assert type(sentiment)==dict, "sentiment must be a dictionary of the form returned by sentiment()."
+    assert type(stars)==dict, "stars must be a dictionary of the form returned by business_stars()."
+    assert len(sentiment)==len(stars), "sentiment and stars must have the same length."
     
     X = []
     y = []
@@ -259,6 +284,8 @@ def kmpp(k, X, compare=False):
     clustering based on those features. I use it for lattitude and longitude and
     it currently only works for 2-d matrices but that could be fixed.
     """
+    
+    assert type(k)==int and k>0, "k must be an integer larger than 0."
     
     print(f"Running k-means++ with k={k}.")
     km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
@@ -290,6 +317,9 @@ def knn(X, y, k=8):
     list of labels for those points y. Optionally can be given a value k to change 
     the number of neighbors in the classifier.
     """
+    
+    assert len(X)==len(y), "X and y must have the same length."
+    assert type(k)==int and k>0, "k must be an integer greater than 0."
 
     X, X_test, y, y_test = train_test_split(X, y, test_size=0.20)
     neigh = KNeighborsClassifier(n_neighbors=k)
@@ -309,6 +339,9 @@ def knn_sentiment_analysis(X, y, X_test, y_test, k=8):
     value k to change the number of neighbors in the classifier. Different than
     knn() just because it's easier for demonstration purposes.
     """
+    
+    assert len(X)==len(y) and len(X_test)==len(y_test), "X and y must have the same length. X_test and y_test must have the same length."
+    assert type(k)==int and k>0, "k must be an integer greater than 0."
 
     neigh = KNeighborsClassifier(n_neighbors=k)
     neigh.fit(X, y)
@@ -325,6 +358,9 @@ def kmpp_sentiment_analysis(k, X, y, compare=False):
     clustering based on those features. I use it for lattitude and longitude and
     it currently only works for 2-d matrices but that could be fixed.
     """
+    
+    assert len(X)==len(y), "X and y must have the same length."
+    assert type(k)==int and k>0, "k must be an integer greater than 0."
     
     print(f"Running k-means++ with k={k}.")
     km = KMeans(n_clusters=k, init='k-means++', max_iter=100)
